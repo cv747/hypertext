@@ -7,11 +7,12 @@ use syn::{
 };
 
 use super::{AttributeValue, Context, ElementBody, Generate, Generator, ParenExpr, Syntax};
-use crate::html::Node;
+use crate::html::{Node, SpreadableAttribute};
 
 pub struct Component<S: Syntax> {
     pub name: Ident,
     pub attrs: Vec<ComponentAttribute>,
+    pub spread_attrs: Vec<SpreadableAttribute>,
     pub body: ElementBody<S>,
 }
 
@@ -24,6 +25,26 @@ impl<S: Syntax> Generate for Component<S> {
             attr.value_expr()
                 .map_or_else(|| quote!(.#name(#name)), |value| quote!(.#name(#value)))
         });
+
+        let spread_attrs = if self.spread_attrs.is_empty() {
+            quote!()
+        } else {
+            let attribute_ident = proc_macro2::Ident::new("attributes", self.name.span());
+            let spread_attrs = self.spread_attrs.iter().map(|attr| {
+                let name = &attr
+                    .name
+                    .lits()
+                    .iter()
+                    .map(syn::LitStr::value)
+                    .collect::<String>();
+                let value = attr.value_expr().map(|v| v.to_string()).unwrap_or_default();
+                quote! {(#name, #value),}
+            });
+
+            quote! {
+                .#attribute_ident(&::hypertext::prelude::SpreadAttributes(&[#(#spread_attrs)*]))
+            }
+        };
 
         let children = match &self.body {
             ElementBody::Normal { children, .. } => {
@@ -55,6 +76,7 @@ impl<S: Syntax> Generate for Component<S> {
         let init = quote! {
             #name::builder()
                 #(#props)*
+                #spread_attrs
                 #children
                 .build()
         };

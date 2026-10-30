@@ -116,6 +116,7 @@ impl Parse for Element<Maud> {
 
                 attrs
             },
+            spread_ident: None,
             body: input.parse()?,
         })
     }
@@ -144,18 +145,30 @@ impl Parse for ElementBody<Maud> {
 
 impl Parse for Component<Maud> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name = input.parse()?;
+
+        let mut attrs = Vec::new();
+
+        while !(input.peek(Token![..]) || input.peek(Token![;]) || input.peek(Brace)) {
+            attrs.push(input.parse()?);
+        }
+
+        let mut spread_attrs = Vec::new();
+
+        if input.peek(Token![..]) {
+            let _ = input.parse::<Token![..]>();
+            while !(input.peek(Token![;]) || input.peek(Brace)) {
+                spread_attrs.push(input.parse()?);
+            }
+        }
+
+        let body = input.parse()?;
+
         Ok(Self {
-            name: input.parse()?,
-            attrs: {
-                let mut attrs = Vec::new();
-
-                while !(input.peek(Token![..]) || input.peek(Token![;]) || input.peek(Brace)) {
-                    attrs.push(input.parse()?);
-                }
-
-                attrs
-            },
-            body: input.parse()?,
+            name,
+            attrs,
+            spread_attrs,
+            body,
         })
     }
 }

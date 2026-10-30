@@ -332,3 +332,23 @@ macro_rules! const_precise_live_drops_hack {
     }};
 }
 use const_precise_live_drops_hack;
+
+/// Allows you to pass through spreadable attributes
+#[derive(Clone, Copy, Debug)]
+pub struct SpreadAttributes<'a>(pub &'a [(&'a str, &'a str)]);
+
+impl<C: crate::context::Context> Renderable<C> for SpreadAttributes<'_>
+where
+    char: Renderable<C>,
+    str: Renderable<C>,
+{
+    #[inline]
+    fn render_to(&self, buffer: &mut crate::Buffer<C>) {
+        for (a, b) in self.0 {
+            ' '.render_to(buffer);
+            a.render_to(buffer);
+            "=".render_to(buffer);
+            b.render_to(buffer);
+        }
+    }
+}

@@ -33,6 +33,15 @@ impl Node<Rsx> {
             attrs.push(input.parse()?);
         }
 
+        let mut spread_attrs = Vec::new();
+
+        if input.peek(Token![..]) {
+            let _ = input.parse::<Token![..]>();
+            while !input.peek(Token![>]) || (input.peek(Token![/]) && input.peek2(Token![>])) {
+                spread_attrs.push(input.parse()?);
+            }
+        }
+
         let solidus = input.parse::<Option<Token![/]>>()?;
         input.parse::<Token![>]>()?;
 
@@ -40,6 +49,7 @@ impl Node<Rsx> {
             Ok(Self::Component(Component {
                 name,
                 attrs,
+                spread_attrs,
                 body: ElementBody::Void {
                     solidus: Some(solidus.span),
                 },
@@ -54,6 +64,7 @@ impl Node<Rsx> {
                         Self::Component(Component {
                             name,
                             attrs,
+                            spread_attrs,
                             body: ElementBody::Void { solidus: None },
                         }),
                     );
@@ -76,6 +87,7 @@ impl Node<Rsx> {
                     Self::Component(Component {
                         name,
                         attrs,
+                        spread_attrs,
                         body: ElementBody::Void { solidus: None },
                     }),
                 );
@@ -87,6 +99,7 @@ impl Node<Rsx> {
             Ok(Self::Component(Component {
                 name,
                 attrs,
+                spread_attrs,
                 body: ElementBody::Normal {
                     children: Many(children),
                     closing_name: Some(parse_quote!(#closing_name)),
@@ -102,9 +115,19 @@ impl Node<Rsx> {
 
         let mut attrs = Vec::new();
 
-        while !(input.peek(Token![>]) || (input.peek(Token![/]) && input.peek2(Token![>]))) {
+        while !(input.peek(Token![>])
+            || (input.peek(Token![/]) && input.peek2(Token![>]))
+            || input.peek(Token![..]))
+        {
             attrs.push(input.parse()?);
         }
+
+        let spread_ident = if input.peek(Token![..]) {
+            let _ = input.parse::<Token![..]>();
+            Some(input.parse::<Ident>()?)
+        } else {
+            None
+        };
 
         let solidus = input.parse::<Option<Token![/]>>()?;
         input.parse::<Token![>]>()?;
@@ -113,6 +136,7 @@ impl Node<Rsx> {
             Ok(Self::Element(Element {
                 name,
                 attrs,
+                spread_ident,
                 body: ElementBody::Void {
                     solidus: Some(solidus.span),
                 },
@@ -127,6 +151,7 @@ impl Node<Rsx> {
                         Self::Element(Element {
                             name,
                             attrs,
+                            spread_ident,
                             body: ElementBody::Void { solidus: None },
                         }),
                     );
@@ -148,6 +173,7 @@ impl Node<Rsx> {
                     Self::Element(Element {
                         name,
                         attrs,
+                        spread_ident,
                         body: ElementBody::Void { solidus: None },
                     }),
                 );
@@ -159,6 +185,7 @@ impl Node<Rsx> {
             Ok(Self::Element(Element {
                 name,
                 attrs,
+                spread_ident,
                 body: ElementBody::Normal {
                     children: Many(children),
                     closing_name: Some(closing_name),

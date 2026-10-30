@@ -30,6 +30,7 @@ use self::{
         Generator, NodeFlavour,
     },
 };
+use crate::html::component::ComponentAttributeValue;
 
 mod kw {
     use syn::LitStr;
@@ -375,6 +376,7 @@ impl<C: Context> Generate for Many<C> {
 pub struct Element<S: Syntax> {
     name: UnquotedName,
     attrs: Vec<Attribute>,
+    spread_ident: Option<Ident>,
     body: ElementBody<S>,
 }
 
@@ -394,6 +396,10 @@ impl<S: Syntax> Generate for Element<S> {
             if let Some(check) = attr.name.check() {
                 el_checks.push_attribute(check);
             }
+        }
+
+        if let Some(ref spread_ident) = self.spread_ident {
+            g.push_expr::<AttributeValue>(Paren::default(), spread_ident);
         }
 
         match &self.body {
@@ -950,6 +956,51 @@ impl Parse for Toggle {
         Ok(Self {
             bracket_token: bracketed!(content in input),
             expr: content.parse()?,
+        })
+    }
+}
+
+pub struct SpreadableAttribute {
+    name: AttributeName,
+    value: Option<ComponentAttributeValue>,
+}
+
+impl Parse for SpreadableAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            name: input.parse()?,
+            value: {
+                if input.peek(Token![=]) {
+                    input.parse::<Token![=]>()?;
+
+                    Some(input.parse()?)
+                } else {
+                    None
+                }
+            },
+        })
+    }
+}
+
+impl SpreadableAttribute {
+    fn value_expr(&self) -> Option<TokenStream> {
+        self.value.as_ref().map(|value| match value {
+            ComponentAttributeValue::Literal(lit) => lit.to_token_stream(),
+            ComponentAttributeValue::Ident(ident) => ident.to_token_stream(),
+            ComponentAttributeValue::Expr(expr) => {
+                let mut tokens = TokenStream::new();
+
+                expr.paren_token.surround(&mut tokens, |tokens| {
+                    expr.expr.to_tokens(tokens);
+                });
+
+                quote! {
+                    {
+                        #[allow(unused_parens)]
+                        #tokens
+                    }
+                }
+            }
         })
     }
 }

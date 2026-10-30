@@ -95,18 +95,6 @@ struct MathIdentifier {
 }
 
 #[renderable]
-fn panel<'a, R: Renderable>(title: &'a str, expanded: bool, children: &R) -> impl Renderable {
-    maud! {
-        section .panel {
-            h2 { (title) }
-            @if expanded {
-                (children)
-            }
-        }
-    }
-}
-
-#[renderable]
 fn wrapper<R: Renderable>(children: &R) -> impl Renderable {
     maud! { div .wrapper { (children) } }
 }
@@ -264,18 +252,35 @@ fn derived_contexts_are_restricted_to_svg_and_mathml() {
     );
 }
 
+#[renderable]
+fn panel<'a, R: Renderable>(
+    title: &'a str,
+    expanded: bool,
+    attributes: Option<&'a SpreadAttributes<'a>>,
+    children: &R,
+) -> impl Renderable {
+    rsx! {
+        <section class="panel">
+            <h2 ..attributes>(title)</h2>
+            @if expanded {
+                (children)
+            }
+        </section>
+    }
+}
+
 #[test]
 fn renderable_functions_cover_props_children_and_branches() {
     assert_html_pair!(
         maud! {
-            Panel title="Open" expanded=true { p { "content" } }
-            Panel title="Closed" expanded=false { p { "hidden" } }
+            Panel title="Open" expanded=true ..x-data="value" { p { "content" } }
+            Panel title="Closed" expanded=false ..x-data="value" { p { "hidden" } }
         },
         rsx! {
-            <Panel title="Open" expanded=true><p>content</p></Panel>
-            <Panel title="Closed" expanded=false><p>hidden</p></Panel>
+            <Panel title="Open" expanded=true ..x-data="value"><p>content</p></Panel>
+            <Panel title="Closed" expanded=false ..x-data="value"><p>hidden</p></Panel>
         },
-        r#"<section class="panel"><h2>Open</h2><p>content</p></section><section class="panel"><h2>Closed</h2></section>"#,
+        r#"<section class="panel"><h2 x-data=&quot;value&quot;>Open</h2><p>content</p></section><section class="panel"><h2 x-data=&quot;value&quot;>Closed</h2></section>"#,
     );
 
     assert_html_pair!(

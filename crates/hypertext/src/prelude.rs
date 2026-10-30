@@ -16,6 +16,7 @@ pub use crate::validation::attributes::OpenGraphMeta;
 #[cfg(feature = "alloc")]
 pub use crate::{Renderable, RenderableExt as _, Rendered};
 pub use crate::{
+    SpreadAttributes,
     macros::*,
     validation::{
         attributes::{
