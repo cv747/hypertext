@@ -347,7 +347,7 @@ where
         for (a, b) in self.0 {
             ' '.render_to(buffer);
             a.render_to(buffer);
-            "=".render_to(buffer);
+            '='.render_to(buffer);
             b.render_to(buffer);
         }
     }

@@ -7,7 +7,7 @@ use syn::{
 };
 
 use super::{AttributeValue, Context, ElementBody, Generate, Generator, ParenExpr, Syntax};
-use crate::html::{Node, SpreadableAttribute};
+use crate::html::{AttributeName, Node};
 
 pub struct Component<S: Syntax> {
     pub name: Ident,
@@ -37,8 +37,14 @@ impl<S: Syntax> Generate for Component<S> {
                     .iter()
                     .map(syn::LitStr::value)
                     .collect::<String>();
-                let value = attr.value_expr().map(|v| v.to_string()).unwrap_or_default();
-                quote! {(#name, #value),}
+                attr.value_expr().map_or_else(
+                    || quote!(),
+                    |v| {
+                        quote! {
+                            (#name, #v),
+                        }
+                    },
+                )
             });
 
             quote! {
@@ -149,5 +155,50 @@ impl Parse for ComponentAttributeValue {
         } else {
             Err(lookahead.error())
         }
+    }
+}
+
+pub struct SpreadableAttribute {
+    name: AttributeName,
+    value: Option<ComponentAttributeValue>,
+}
+
+impl Parse for SpreadableAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            name: input.parse()?,
+            value: {
+                if input.peek(Token![=]) {
+                    input.parse::<Token![=]>()?;
+
+                    Some(input.parse()?)
+                } else {
+                    None
+                }
+            },
+        })
+    }
+}
+
+impl SpreadableAttribute {
+    fn value_expr(&self) -> Option<TokenStream> {
+        self.value.as_ref().map(|value| match value {
+            ComponentAttributeValue::Literal(lit) => lit.to_token_stream(),
+            ComponentAttributeValue::Ident(ident) => ident.to_token_stream(),
+            ComponentAttributeValue::Expr(expr) => {
+                let mut tokens = TokenStream::new();
+
+                expr.paren_token.surround(&mut tokens, |tokens| {
+                    expr.expr.to_tokens(tokens);
+                });
+
+                quote! {
+                    {
+                        #[allow(unused_parens)]
+                        #tokens
+                    }
+                }
+            }
+        })
     }
 }
