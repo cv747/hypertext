@@ -37,7 +37,7 @@ impl Node<Rsx> {
 
         if input.peek(Token![..]) {
             let _ = input.parse::<Token![..]>();
-            while !input.peek(Token![>]) || (input.peek(Token![/]) && input.peek2(Token![>])) {
+            while !(input.peek(Token![>]) || (input.peek(Token![/]) && input.peek2(Token![>]))) {
                 spread_attrs.push(input.parse()?);
             }
         }
